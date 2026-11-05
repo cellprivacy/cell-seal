@@ -1,0 +1,7 @@
+[package]
+name = "stellar_confidential_lib"
+type = "lib"
+authors = ["OpenZeppelin"]
+# Nargo requirements cannot name prereleases; the supported toolchain is
+# nargo 1.0.0-beta.11 + bb 0.87.0, pinned in .github/workflows/noir.yml.
+compiler_version = "=1.0.0"

@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "lib",
+    "register",
+    "transfer",
+    "withdraw",
+    "set_spender",
+    "spender_transfer",
+    "clawback",
+]

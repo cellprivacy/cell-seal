@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "share-token",
+    "seal-token",
+    "seal-verifier",
+    "seal-auditor",
+    "fund-policy",
+    "settlement",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/cellprivacy/cell-seal"
+
+[workspace.dependencies]
+soroban-sdk = { version = "27.0.2", features = ["experimental_spec_shaking_v2"] }
+soroban-test-helpers = "0.2.4"
+stellar-tokens = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "5ffda91" }
+stellar-access = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "5ffda91" }
+stellar-macros = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "5ffda91" }
+stellar-contract-utils = { git = "https://github.com/OpenZeppelin/stellar-contracts", rev = "5ffda91" }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
