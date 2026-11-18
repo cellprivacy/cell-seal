@@ -1,0 +1,6 @@
+/* The "Contents" column wraps long section titles instead of cutting them off. */
+.VPDocAsideOutline .outline-link {
+  white-space: normal;
+  line-height: 1.4;
+  padding: 4px 0;
+}
