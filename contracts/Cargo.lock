@@ -1409,15 +1409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "seal-tools"
-version = "0.1.0"
-dependencies = [
- "hex",
- "soroban-sdk",
- "stellar-tokens",
-]
-
-[[package]]
 name = "seal-verifier"
 version = "0.1.0"
 dependencies = [
