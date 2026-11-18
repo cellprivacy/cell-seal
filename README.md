@@ -1,74 +1,91 @@
-# Cell Seal
+# Cell Seal: Technical Design
 
-**Confidential settlement for tokenized funds on Stellar.**
+Cell Seal is the settlement layer for tokenized RWA funds on Stellar. The amount of every
+transaction is sealed on the public ledger, while the issuer, the transfer agent and the regulator
+can still read everything. It is sold to tokenization platforms as a contract set plus an SDK. The
+platform keeps its fund token, its mint and burn rights, KYC and the order lifecycle.
 
-Cell Seal lets a tokenized fund keep investor balances and order sizes private while preserving the holder visibility a regulated fund needs. Holder addresses stay public. The product is designed to give the issuer, transfer agent and regulator controlled access to amounts through a shared viewing key.
+This repository is the technical design document (TDD). It holds no application code.
 
-This is the project repository for Cell Seal's **Stellar Community Fund #46 Open Track** submission. It brings together the Soroban prototype, Noir circuits and technical design supporting the application.
+Published at **[docs.cellprivate.com/seal/architecture](https://docs.cellprivate.com/seal/architecture)**:
+the Technical Architecture Document written for the Stellar Community Fund Build Award, with every
+document below as a page under `/seal/`. The site is built from `docs/` with VitePress and deployed
+by Vercel from `vercel.json`. One folder per product: `docs/seal/` is this design; a second
+product gets its own folder and URL prefix on the same site. Mermaid blocks are rendered to SVG at build time, so the pages carry
+no diagram JavaScript. `pnpm docs:dev` serves it locally, `pnpm docs:build` fails on a dead link or
+on a diagram that does not parse.
 
-## How it works
+## Reading order
 
-A fund's SEP-41 token is wrapped 1:1 into sealed balances. Share transfers carry an order reference and a cryptographic proof, which a Soroban contract verifies without publishing the amount. Subscriptions and redemptions are netted over a settlement window, so the public wrap or unwrap reveals the window net rather than each order size.
+| # | Document | Scope | For | Answers |
+|---|---|---|---|---|
+| 0 | [`docs/technical-architecture.md`](docs/seal/technical-architecture.md) | Both | Everyone | Start here. Components, Stellar integration, order flow, security and monitoring, infrastructure, stack, licensing, what exists today, testnet addresses |
+| 1 | [`docs/overview.md`](docs/seal/overview.md) | Both | Everyone | What the product does, for whom, what it does not do |
+| 2 | [`docs/glossary.md`](docs/seal/glossary.md) | Both | Everyone | What each term means, and where it appears in the contracts and the SDK |
+| 3 | [`docs/flows.md`](docs/seal/flows.md) | Product | Everyone | Each business flow: who does what, what goes on chain, what the market sees |
+| 4 | [`docs/integration.md`](docs/seal/integration.md) | Product | Integrators | What the platform owns, what Cell Seal provides. Fund token conditions. Who mints, who burns. Reconciliation |
+| 5 | [`docs/onboarding.md`](docs/seal/onboarding.md) | Product | Integrators | Bringing a fund onto the rail: Case 1 (no token yet) and Case 2 (existing token), step by step |
+| 6 | [`docs/primitives.md`](docs/seal/primitives.md) | Product | Engineering | The OpenZeppelin Confidential Token: what is reused, what is built |
+| 7 | [`docs/architecture.md`](docs/seal/architecture.md) | Both | Engineering | Components, what is product and what is sandbox, trust boundaries, data classification, data flows |
+| 8 | [`docs/contracts.md`](docs/seal/contracts.md) | Product | Soroban | Each contract: functions, events, errors, permissions, invariants |
+| 9 | [`docs/cryptography.md`](docs/seal/cryptography.md) | Product | Cryptography, SDK | Anatomy of a transfer, sealed box, DvP, threshold viewing key, openings |
+| 10 | [`docs/keys.md`](docs/seal/keys.md) | Product | All engineering | Every key: generation, storage, recovery, rotation, loss |
+| 11 | [`docs/sdk.md`](docs/seal/sdk.md) | Product | Integrators, frontend | The `@cell-seal/sdk` API and the host services it needs |
+| 12 | [`docs/security.md`](docs/seal/security.md) | Both | Everyone, auditors | Threat model, leak catalogue, invariants, assurance plan, test strategy |
+| 13 | [`docs/backend.md`](docs/seal/backend.md) | Sandbox | Backend | The sandbox backend: services, API, state machine, reference indexer, data model |
+| 14 | [`docs/frontend.md`](docs/seal/frontend.md) | Sandbox | Frontend | The sandbox apps: routes, data handling, amounts, browser security |
+| 15 | [`docs/design/`](docs/seal/design/README.md) | Sandbox | Product, frontend | The sandbox screens: fund console (11) and investor app (7) |
 
-Cell Seal builds on OpenZeppelin's Confidential Token primitive and Nethermind's UltraHonk verifier. The target product combines settlement contracts, a TypeScript SDK and onboarding tools for tokenization platforms and transfer agents. Platforms retain their fund token, mint and burn authority, KYC process and order lifecycle.
+**Scope** says what each document describes. *Product* is what a tokenization platform receives:
+the contracts, the SDK and the onboarding procedure. *Sandbox* is the reference tokenization
+platform that ships with Cell Seal integrated, for evaluation. Nothing in it is sold or required.
+*Both* covers the two.
 
-## For SCF reviewers
+## Four principles
 
-- [Technical Architecture Document](docs/technical-architecture.md): architecture, Stellar integration, security, testnet evidence and tranche roadmap. Appendix A lists the prototype contract IDs and cycle transactions.
-- [Technical design index](docs/README.md): detailed specifications for contracts, cryptography, keys, SDK, integration and the evaluation sandbox.
-- [Published documentation](https://docs.cellprivate.com/seal).
+1. **Cell Seal reads no amount.** Nothing Cell Seal ships holds a key that can read an amount.
+   encryption, decryption and proof generation happen only in the browser of an authorized party.
+   Any backend the SDK talks to, the sandbox's included, is amount-blind.
+2. **The chain is the source of truth.** State changes only on final events or on signed
+   attestations.
+3. **The rail knows nothing about fund business.** NAV, cut-off and dealing days live in the
+   tokenization platform's system. In the sandbox, in the backend and the fund console.
+4. **Compose, do not rewrite.** The underlying cryptography belongs to the primitive. Cell Seal
+   writes the parts nobody has built.
 
-## Testnet prototype
+## Product boundary
 
-The self-funded prototype completed a subscription, settlement and redemption cycle on Stellar testnet with real UltraHonk proofs on 9 October 2026. The cycle wrapped a net of 1,000 shares, delivered 250 shares sealed, redeemed 100 shares sealed and closed the next window with a net of −100 shares. The transaction references are recorded in the [TAD's testnet appendix](docs/technical-architecture.md#appendix-a-testnet-contracts-and-transactions).
+| Layer | What | Form |
+|---|---|---|
+| Settlement contracts | `seal-token` wrapper, `settlement`, `fund-policy`, `seal-verifier`, `seal-auditor`, `fund-registry` | **Product.** One contract set per platform, one wrapper per fund |
+| SDK | `@cell-seal/sdk`: keys, proofs, decryption, sealed box, contract clients, register | **Product.** Integrated into the platform's own apps and backend |
+| Onboarding | The procedure and the checks for bringing a fund onto the rail, Case 1 and Case 2 | **Product.** Delivered with the SDK, [`docs/onboarding.md`](docs/seal/onboarding.md) |
+| Host services | Stellar RPC, a permanent event archive, an order store for ciphertext | **Platform's.** The SDK needs them. The platform provides them in its own infrastructure, [`docs/sdk.md`](docs/seal/sdk.md) section 2.1 |
+| Sandbox | A reference tokenization platform with Cell Seal integrated: backend (`gateway`, `orders`, `indexer`, Postgres), fund console, investor app | **Not the product.** For platforms to try the rail and to read as a worked integration. Not sold, not operated for real funds. Its `indexer` is a reference implementation of the event archive that a platform may run as is |
 
-The source here covers five product contracts and a sample fund token:
+`settlement` never mints or burns the fund token. It wraps the net of a window when `net > 0` and
+unwraps it when `net < 0`. The issuer mints and burns on the platform's own rail. Two onboarding
+cases share the same contracts: a fund with no token yet (Case 1) and a fund with an existing
+token and public holders (Case 2). See [`docs/onboarding.md`](docs/seal/onboarding.md).
 
-| Contract | Role |
+## Status
+
+| Part | Status |
 |---|---|
-| `seal-token` | Confidential share wrapper with fund-specific policy hooks |
-| `seal-verifier` | UltraHonk proof verification and verification-key registry |
-| `seal-auditor` | Auditor viewing-key registry |
-| `fund-policy` | Holder whitelist and KYC expiry checks |
-| `settlement` | Order-linked sealed transfers and window net settlement |
-| `share-token` | Sample fund token used by the prototype |
+| Product model | Decided 2026-10-24: contracts plus SDK sold to tokenization platforms. `settlement` does not mint or burn. The testnet prototype predates this decision. The required changes are in [`docs/integration.md`](docs/seal/integration.md) section 8 |
+| Technical Architecture Document for SCF | Written 2026-11-09, published at `docs.cellprivate.com/seal/architecture` |
+| Overview, glossary, flows, onboarding, design | Written |
+| Primitive survey | Read from the upstream `v0.9.0` code on 2026-09-20 and measured on testnet on 2026-10-09 ([`docs/primitives.md`](docs/seal/primitives.md) section 8) |
+| Technical design | Version 1, the basis for implementation |
+| Code | [Contracts and circuits](https://github.com/cellprivacy/cell-seal). |
 
-The prototype reflects the starting point described in the SCF application: fund registration lives inside `settlement` and `fund-policy`, and window close still mints or burns the sample fund token. The product-model changes are part of Tranche 1.
+## Conventions
 
-## SCF roadmap
-
-| Tranche | Planned delivery |
-|---|---|
-| 1 — Product-model contracts and SDK v0 | Separate `fund-registry`, settlement that only wraps or unwraps net, existing-token onboarding, holder self-wrap, SDK v0 and reference indexer |
-| 2 — Hardened testnet and sandbox | Key/admin timelocks, monitoring, TTL management, sealed stablecoin settlement, atomic DvP and evaluation apps |
-| 3 — Disclosure and mainnet release | 2-of-3 viewing key and audit access, reproducible builds, platform pilot, SDK 1.0 and an audit-gated mainnet launch |
-
-These are planned deliverables; the prototype does not yet implement the full product design. The SDK, backend and apps are not included in this repository's current source tree.
-
-## Repository layout
-
-| Path | Contents |
-|---|---|
-| `contracts/` | Soroban contracts, existing tests, proof fixtures and six verification keys |
-| `circuits/` | Register, transfer, withdraw, set-spender, spender-transfer and clawback circuits, plus their shared Noir library |
-| `docs/` | Technical Architecture Document and detailed product specifications |
-
-The contracts pin OpenZeppelin `stellar-contracts` to commit `5ffda91`. The operation circuits and shared library originate from that upstream implementation.
-
-## Build and test
-
-Contract tests:
-
-```sh
-cd contracts
-cargo test --workspace
-```
-
-Circuit tests, using Noir `1.0.0-beta.11`:
-
-```sh
-cd circuits
-nargo test
-```
-
-The prototype verification keys use Barretenberg `0.87.0`. Proof fixtures and verification keys are included for the contract tests; a deployment or end-to-end proving run requires additional tooling.
+- English throughout. Technical terms follow [`docs/glossary.md`](docs/seal/glossary.md).
+- **L-n**: an amount leak path, master list in `docs/security.md` section 3. **R-n**: an item in
+  the scope of the independent cryptographic review, `docs/cryptography.md` section 10.
+- Primitive signatures are copied from the upstream spec at the pinned commit. When the commit is
+  bumped, re-check `docs/contracts.md` sections 3 to 4 and `docs/cryptography.md` sections 1 to 3.
+- Diagrams are Mermaid fenced blocks. Stellar accounts are `G...`, contracts are `C...`.
+- Amounts in prose are illustrative. The only public figure the design produces per window is
+  `net`.
