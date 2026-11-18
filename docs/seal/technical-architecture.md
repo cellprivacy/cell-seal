@@ -4,7 +4,7 @@
 |---|---|
 | Version | 1.1, 2026-11-09 |
 | Status | Design complete. Prototype on Stellar testnet: five of the six contracts, one full fund cycle with real proofs on 9 October 2026. Product build starts with Tranche #1 of the SCF Build Award |
-| Code | https://github.com/cellprivacy/cell |
+| Code | https://github.com/cellprivacy/cell-seal |
 | Design | https://docs.cellprivate.com/seal, fifteen documents, listed in section 10 |
 | Contact | https://cellprivate.com |
 

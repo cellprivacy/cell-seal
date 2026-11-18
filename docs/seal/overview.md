@@ -1,7 +1,7 @@
 # Cell Seal: Overview
 
 > This document answers three questions: what the product does, who it is for, and what it does
-> not do. The technical design lives in the documents listed in the [`README`](README.md).
+> not do. The technical design lives in the documents listed in the [`README`](../../README.md).
 
 | | |
 |---|---|
